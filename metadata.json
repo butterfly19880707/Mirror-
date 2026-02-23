@@ -1,0 +1,7 @@
+{
+  "name": "Rhythm Mandala",
+  "description": "A high-intensity, symmetrical kaleidoscope visualizer that reacts to music rhythm and beats.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
