@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Mic, Upload, Play, Pause, Square, Music } from 'lucide-react';
+import { Mic, Upload, Play, Pause, Square, Music, Settings, ChevronUp, ChevronDown, Palette } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 
 export default function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -9,8 +10,8 @@ export default function App() {
   const [source, setSource] = useState<MediaStreamAudioSourceNode | MediaElementAudioSourceNode | null>(null);
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
   const [mode, setMode] = useState<'mic' | 'file' | null>(null);
-  const [theme, setTheme] = useState<string>('neon');
-  const [kaleidoscope, setKaleidoscope] = useState(true);
+  const [theme, setTheme] = useState<string>('gold');
+  const [showSettings, setShowSettings] = useState(false);
   
   const requestRef = useRef<number>();
   const dataArrayRef = useRef<Uint8Array | null>(null);
@@ -64,8 +65,18 @@ export default function App() {
       }
       beatRef.current.energy = bassEnergy;
 
+      // Theme-aware background colors
+      let bgFill;
+      if (theme === 'gold') {
+        bgFill = isBeat ? 'rgba(40, 30, 10, 0.3)' : 'rgba(20, 15, 5, 0.15)';
+      } else if (theme === 'neon') {
+        bgFill = isBeat ? 'rgba(20, 10, 40, 0.3)' : 'rgba(10, 5, 20, 0.15)';
+      } else {
+        bgFill = isBeat ? 'rgba(20, 20, 20, 0.3)' : 'rgba(10, 10, 10, 0.15)';
+      }
+
       // Clear with slight trail effect
-      ctx.fillStyle = isBeat ? 'rgba(20, 10, 40, 0.3)' : 'rgba(10, 5, 20, 0.15)';
+      ctx.fillStyle = bgFill;
       ctx.fillRect(0, 0, width, height);
 
       // Update rotation based on intensity
@@ -99,22 +110,6 @@ export default function App() {
       }
 
       ctx.restore();
-
-      // Kaleidoscope Overlay
-      if (kaleidoscope) {
-        ctx.save();
-        ctx.globalCompositeOperation = 'screen';
-        ctx.globalAlpha = 0.3;
-        ctx.translate(centerX, centerY);
-        ctx.rotate(-rotationRef.current * 0.5);
-        ctx.scale(0.8, 0.8);
-        
-        for (let i = 0; i < 4; i++) {
-          ctx.rotate(Math.PI / 2);
-          ctx.drawImage(canvas, -centerX, -centerY);
-        }
-        ctx.restore();
-      }
     };
 
     draw();
@@ -149,7 +144,10 @@ export default function App() {
     let hue1, hue2;
     const beatShift = isBeat ? 30 : 0;
     
-    if (theme === 'neon') {
+    if (theme === 'gold') {
+      hue1 = 45 + beatShift / 2;  // Gold
+      hue2 = 35 + beatShift / 2;  // Amber
+    } else if (theme === 'neon') {
       hue1 = 300 + beatShift; // Magenta
       hue2 = 180 + beatShift; // Cyan
     } else if (theme === 'sunset') {
@@ -282,7 +280,11 @@ export default function App() {
   };
 
   return (
-    <div className="relative w-full h-screen bg-[#0a0514] overflow-hidden font-sans text-white">
+    <div className={`relative w-full h-screen overflow-hidden font-sans text-white transition-colors duration-1000 ${
+      theme === 'gold' ? 'bg-[#140f05]' : 
+      theme === 'neon' ? 'bg-[#0a0514]' : 
+      'bg-[#050505]'
+    }`}>
       {/* Canvas Layer */}
       <canvas
         ref={canvasRef}
@@ -292,39 +294,55 @@ export default function App() {
       {/* UI Overlay */}
       <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-6 z-10 w-full max-w-md px-4">
         
-        {/* Theme Selector */}
-        <div className="flex items-center gap-4 p-1.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10 overflow-x-auto no-scrollbar max-w-full">
-          <div className="flex gap-2">
-            {[
-              { id: 'dynamic', name: 'Dynamic', color: 'bg-gradient-to-r from-red-400 via-green-400 to-blue-400' },
-              { id: 'neon', name: 'Neon', color: 'bg-gradient-to-r from-fuchsia-500 to-cyan-400' },
-              { id: 'sunset', name: 'Sunset', color: 'bg-gradient-to-r from-orange-500 to-rose-500' },
-              { id: 'ocean', name: 'Ocean', color: 'bg-gradient-to-r from-blue-600 to-teal-400' },
-              { id: 'emerald', name: 'Emerald', color: 'bg-gradient-to-r from-emerald-500 to-lime-400' },
-              { id: 'monochrome', name: 'Mono', color: 'bg-white' },
-            ].map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setTheme(t.id)}
-                className={`group relative flex items-center justify-center w-8 h-8 rounded-full transition-all hover:scale-110 active:scale-95 flex-shrink-0 ${
-                  theme === t.id ? 'ring-2 ring-white ring-offset-2 ring-offset-black/50 scale-110' : 'opacity-60 hover:opacity-100'
-                }`}
-                title={t.name}
+        {/* Settings Toggle & Menu */}
+        <div className="flex flex-col items-center gap-3 w-full">
+          <AnimatePresence>
+            {showSettings && (
+              <motion.div
+                initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 20, scale: 0.95 }}
+                className="flex items-center gap-4 p-2 rounded-full bg-black/60 backdrop-blur-xl border border-white/10 overflow-x-auto no-scrollbar max-w-full shadow-2xl"
               >
-                <div className={`w-full h-full rounded-full ${t.color} shadow-lg`} />
-              </button>
-            ))}
-          </div>
-          
-          <div className="h-6 w-px bg-white/10" />
-          
+                <div className="flex gap-2 px-2">
+                  {[
+                    { id: 'gold', name: 'Gold', color: 'bg-gradient-to-r from-yellow-600 via-yellow-400 to-amber-600' },
+                    { id: 'dynamic', name: 'Dynamic', color: 'bg-gradient-to-r from-red-400 via-green-400 to-blue-400' },
+                    { id: 'neon', name: 'Neon', color: 'bg-gradient-to-r from-fuchsia-500 to-cyan-400' },
+                    { id: 'sunset', name: 'Sunset', color: 'bg-gradient-to-r from-orange-500 to-rose-500' },
+                    { id: 'ocean', name: 'Ocean', color: 'bg-gradient-to-r from-blue-600 to-teal-400' },
+                    { id: 'emerald', name: 'Emerald', color: 'bg-gradient-to-r from-emerald-500 to-lime-400' },
+                    { id: 'monochrome', name: 'Mono', color: 'bg-white' },
+                  ].map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => {
+                        setTheme(t.id);
+                        // Optional: auto-close after selection
+                        // setShowSettings(false);
+                      }}
+                      className={`group relative flex items-center justify-center w-8 h-8 rounded-full transition-all hover:scale-110 active:scale-95 flex-shrink-0 ${
+                        theme === t.id ? 'ring-2 ring-white ring-offset-2 ring-offset-black/50 scale-110' : 'opacity-60 hover:opacity-100'
+                      }`}
+                      title={t.name}
+                    >
+                      <div className={`w-full h-full rounded-full ${t.color} shadow-lg`} />
+                    </button>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <button
-            onClick={() => setKaleidoscope(!kaleidoscope)}
-            className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all ${
-              kaleidoscope ? 'bg-white text-black' : 'bg-white/10 text-white hover:bg-white/20'
-            }`}
+            onClick={() => setShowSettings(!showSettings)}
+            className="flex items-center gap-2 px-4 py-2 rounded-full bg-black/40 backdrop-blur-md border border-white/10 hover:bg-black/60 transition-all active:scale-95 group"
           >
-            Kaleidoscope
+            <Palette className={`w-4 h-4 transition-transform duration-500 ${showSettings ? 'rotate-180 text-white' : 'text-white/70 group-hover:text-white'}`} />
+            <span className="text-[10px] font-bold uppercase tracking-widest text-white/70 group-hover:text-white">
+              {showSettings ? 'Close Menu' : 'Visual Settings'}
+            </span>
+            {showSettings ? <ChevronDown className="w-3 h-3 text-white/50" /> : <ChevronUp className="w-3 h-3 text-white/50" />}
           </button>
         </div>
 
